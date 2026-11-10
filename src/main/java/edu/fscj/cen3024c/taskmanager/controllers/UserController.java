@@ -12,11 +12,22 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.profiler.Profiler;
+import org.slf4j.profiler.TimeInstrument;
+
+import jakarta.validation.Valid;
+
 import java.util.List;
 
 @RestController
 @RequestMapping("/users")
 public class UserController {
+
+    // Logger instance
+    private static final Logger logger =
+            LoggerFactory.getLogger(UserController.class);
 
     @Autowired
     private UserService userService;
@@ -37,14 +48,45 @@ public class UserController {
     // ===== WRITE endpoints accept entities but return DTOs =====
 
     @PostMapping
-    public UserDTO createUser(@RequestBody UserDTO user) {
-        User savedUser = userService.save(user);
-        return userService.convertToDTO(savedUser);
+    public UserDTO createUser(@Valid @RequestBody UserDTO user) {
+
+        Profiler profiler = new Profiler("createUser");
+        profiler.start("Create User");
+
+
+        try {
+            User savedUser = userService.save(user);
+            UserDTO dto = userService.convertToDTO(savedUser);
+
+            logger.info("User created successfully: {}",
+                    dto.getUsername());
+
+            return dto;
+
+        } catch (Exception e) {
+            logger.error("Error creating user: {}", e.getMessage());
+            throw e;
+        } finally {
+            TimeInstrument ti = profiler.stop();
+            ti.print(); // logs timing info even if an exception occurs
+        }
     }
 
     @PutMapping("/{id}")
     public UserDTO updateUser(@PathVariable Integer id, @RequestBody UserDTO user) {
-        return userService.updateUser(id, user);
+        try {
+            UserDTO updatedUser = userService.updateUser(id, user);
+
+            logger.info("User updated successfully: {}",
+                    updatedUser.getUsername());
+
+            return updatedUser;
+        } catch (Exception e) {
+            logger.error("Error updating user with ID {}: {}",
+                    id, e.getMessage());
+
+            throw e;
+        }
     }
 
     @DeleteMapping("/{id}")
